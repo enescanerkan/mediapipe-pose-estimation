@@ -15,9 +15,6 @@ Aşağıdaki komut ile gerekli kütüphaneleri yükleyebilirsiniz: (You can inst
 ```sh
 pip install opencv-python mediapipe numpy
 
-# Video Example
 
-
-![pose](https://github.com/enescanerkan/Pose_Estimation/assets/154825118/eabbc19a-a0be-4d41-97a8-4e944b5cf367)
 
 

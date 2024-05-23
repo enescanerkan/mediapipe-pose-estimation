@@ -14,7 +14,3 @@ Aşağıdaki komut ile gerekli kütüphaneleri yükleyebilirsiniz: (You can inst
 
 ```sh
 pip install opencv-python mediapipe numpy
-
-
-
-

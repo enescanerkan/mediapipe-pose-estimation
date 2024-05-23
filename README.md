@@ -12,9 +12,10 @@ Projeyi çalıştırmadan önce aşağıdaki Python kütüphanelerini yüklemeni
 
 Aşağıdaki komut ile gerekli kütüphaneleri yükleyebilirsiniz: (You can install the required libraries using the following command:)
 
+pip install opencv-python mediapipe numpy
+
 ![pose](https://github.com/enescanerkan/Pose_Estimation/assets/154825118/b7efc76f-1d06-4bb2-8f4d-1660baf2eec9)
 
 
 
-```sh
-pip install opencv-python mediapipe numpy
+

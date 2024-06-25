@@ -2,8 +2,9 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
+
 class PoseEstimation:
-    def __init__(self, video_path):
+    def __init__(self, video_path=None):
         """
         DOCSTRING: PoseEstimation sınıfını başlatır ve MediaPipe Pose modelini yükler.
         """
@@ -11,25 +12,31 @@ class PoseEstimation:
         self.mp_pose = mp.solutions.pose
         self.pose = self.mp_pose.Pose()
         self.mp_drawing = mp.solutions.drawing_utils
-        self.cap = cv2.VideoCapture(video_path)
+        self.cap = cv2.VideoCapture(video_path) if video_path else cv2.VideoCapture(0)  # Kameraya bağlan veya video dosyasını aç
         self.count = 0
         self.arms_up_flag = False
         self.Left_Wrist_Points = []  # Sol bilek koordinatlarını tutan liste
         self.Right_Wrist_Points = []  # Sağ bilek koordinatlarını tutan liste
+        self.Right_Angle = []  # sağ açı
+        self.Left_Angle = []  # sol açı
 
     def __del__(self):
         """
         DOCSTRING: PoseEstimation sınıfı örneği silinirken kaynakları serbest bırakır.
         """
-        self.cap.release()
+        if hasattr(self, 'cap'):
+            self.cap.release()
         cv2.destroyAllWindows()
 
     @staticmethod
     def calculate_angle(a, b, c):
         """
         DOCSTRING: Üç nokta arasındaki açıyı hesaplar.
-        INPUT: a, b, c (noktalar)
-        OUTPUT: Açı (derece)
+
+        :param a: İlk nokta
+        :param b: İkinci nokta (açı merkezi)
+        :param c: Üçüncü nokta
+        :return: Açı (derece)
         """
         a = np.array(a)
         b = np.array(b)
@@ -42,23 +49,25 @@ class PoseEstimation:
     def draw_lines(self, image):
         """
         DOCSTRING: Ekranın belirli bir bölgesine çizgiler çizer.
-        INPUT: image (çerçeve görüntüsü)
-        OUTPUT: Yok
+
+        :param image: Çerçeve görüntüsü
+        :return: Yok
         """
-        # Çizgilerin piksel değerlerini belirleyin
+        # Çizgilerin piksel değerlerini belirlemek
         self.top_line_y = 250
-        self.bottom_line_y = 650
+        self.bottom_line_y = 550
         height, width, _ = image.shape
-        cv2.line(image, (0, self.top_line_y), (width, self.top_line_y), (255, 0, 0), thickness=2)
-        cv2.line(image, (0, self.bottom_line_y), (width, self.bottom_line_y), (255, 0, 0), thickness=2)
+        cv2.line(image, (0, self.top_line_y), (width, self.top_line_y), (0, 0, 255), thickness=2)
+        cv2.line(image, (0, self.bottom_line_y), (width, self.bottom_line_y), (0, 0, 255), thickness=2)
 
     def check_left_arm(self, landmarks):
         """
         DOCSTRING: Sol kolun hareketlerini kontrol eder ve bilek koordinatlarını kaydeder.
-        INPUT: landmarks (pose işaret noktaları)
-        OUTPUT: Sol kol açısı
+
+        :param landmarks: Pose işaret noktaları
+        :return: Sol kol açısı
         """
-        # Sol omuz, dirsek ve bilek noktalarını alın
+        # Sol omuz, dirsek ve bilek noktalarını almak
         left_shoulder = [landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
                          landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
         left_elbow = [landmarks[self.mp_pose.PoseLandmark.LEFT_ELBOW.value].x,
@@ -77,8 +86,9 @@ class PoseEstimation:
     def check_right_arm(self, landmarks):
         """
         DOCSTRING: Sağ kolun hareketlerini kontrol eder ve bilek koordinatlarını kaydeder.
-        INPUT: landmarks (pose işaret noktaları)
-        OUTPUT: Sağ kol açısı
+
+        :param landmarks: Pose işaret noktaları
+        :return: Sağ kol açısı
         """
         # Sağ omuz, dirsek ve bilek noktalarını alın
         right_shoulder = [landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x,
@@ -99,22 +109,28 @@ class PoseEstimation:
     def check_posture(self, landmarks, image):
         """
         DOCSTRING: Çalışanın doğru oturma pozisyonunu kontrol eder ve kol hareketini sayar.
-        INPUT: landmarks (pose işaret noktaları), image (çerçeve görüntüsü)
-        OUTPUT: "UP" veya "DOWN" duruş sonucu
+
+        :param landmarks: Pose işaret noktaları
+        :param image: Çerçeve görüntüsü
+        :return: "UP" veya "DOWN" duruş sonucu
         """
         left_angle = self.check_left_arm(landmarks)
+        self.Left_Angle.append(left_angle)
+
         right_angle = self.check_right_arm(landmarks)
+        self.Right_Angle.append(right_angle)
 
         # Kolların yukarıda ve aşağıda olması için açı aralıkları
         upper_angle_threshold = 60  # Kolların yukarıda olduğunu belirten açı eşiği
-        lower_angle_threshold = 100 # Kolların aşağıda olduğunu belirten açı eşiği
+        lower_angle_threshold = 100  # Kolların aşağıda olduğunu belirten açı eşiği
 
-        # Sol ve sağ bileklerin y koordinatlarını alın
+        # Sol ve sağ bileklerin y koordinatlarını almak
         left_wrist_y = landmarks[self.mp_pose.PoseLandmark.LEFT_WRIST.value].y * image.shape[0]
         right_wrist_y = landmarks[self.mp_pose.PoseLandmark.RIGHT_WRIST.value].y * image.shape[0]
 
-        # Sol ve sağ bileklerin çizgiler arasında olup olmadığını kontrol edin
-        if (self.top_line_y < left_wrist_y < self.bottom_line_y) and (self.top_line_y < right_wrist_y < self.bottom_line_y):
+        # Sol ve sağ bileklerin çizgiler arasında olup olmadığını kontrol etmek
+        if (self.top_line_y < left_wrist_y < self.bottom_line_y) and (
+                self.top_line_y < right_wrist_y < self.bottom_line_y):
             if left_angle < upper_angle_threshold and right_angle < upper_angle_threshold:
                 if not self.arms_up_flag:
                     self.arms_up_flag = True  # Kollar yukarıda, bayrağı set et
@@ -123,13 +139,37 @@ class PoseEstimation:
                     self.count += 1
                     self.arms_up_flag = False  # Kollar aşağı indi, bayrağı sıfırla ve sayıyı artır
 
-        return "UP" if self.arms_up_flag == True else "DOWN"
+        # Sol ve sağ kol açılarını ekranda göstermek
+        cv2.putText(image, f'Left Arm Angle: {int(left_angle)}', (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2,
+                    cv2.LINE_AA)
+        cv2.putText(image, f'Right Arm Angle: {int(right_angle)}', (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2,
+                    cv2.LINE_AA)
+
+        # Sol açı için yay çizimi
+        cv2.putText(image, f'{int(left_angle)}',
+                    (int(landmarks[self.mp_pose.PoseLandmark.LEFT_ELBOW.value].x * image.shape[1]),
+                     int(landmarks[self.mp_pose.PoseLandmark.LEFT_ELBOW.value].y * image.shape[0])),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2, cv2                    .LINE_AA)
+        cv2.putText(image, '---', (int(landmarks[self.mp_pose.PoseLandmark.LEFT_ELBOW.value].x * image.shape[1]),
+                                   int(landmarks[self.mp_pose.PoseLandmark.LEFT_ELBOW.value].y * image.shape[0])),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2, cv2.LINE_AA)
+
+        # Sağ açı için yay çizimi
+        cv2.putText(image, f'{int(right_angle)}',
+                    (int(landmarks[self.mp_pose.PoseLandmark.RIGHT_ELBOW.value].x * image.shape[1]),
+                     int(landmarks[self.mp_pose.PoseLandmark.RIGHT_ELBOW.value].y * image.shape[0])),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2, cv2.LINE_AA)
+        cv2.putText(image, '---', (int(landmarks[self.mp_pose.PoseLandmark.RIGHT_ELBOW.value].x * image.shape[1]),
+                                   int(landmarks[self.mp_pose.PoseLandmark.RIGHT_ELBOW.value].y * image.shape[0])),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2, cv2.LINE_AA)
+
+        return "UP" if self.arms_up_flag else "DOWN"
 
     def run(self):
         """
         DOCSTRING: Canlı kamera görüntüsünden duruş tahmini yapar ve sonucu ekranda gösterir.
-        INPUT: Yok
-        OUTPUT: Yok
+
+        :return: Yok
         """
         while self.cap.isOpened():
             ret, frame = self.cap.read()
@@ -160,6 +200,7 @@ class PoseEstimation:
                 break
 
 if __name__ == "__main__":
-    video_path = r"D:\Python\pythonProject\NORBİT\images\(1).mp4"  # Video dosyasının yolu
+    video_path = r"C:\Users\Monster\PycharmProjects\pythonProject\NORBİT\images\(1).mp4"  # Video dosyasının yolu
     pose_estimation = PoseEstimation(video_path)
     pose_estimation.run()
+
